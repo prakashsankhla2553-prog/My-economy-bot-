@@ -1,4 +1,4 @@
-import os
+urimport os
 import json
 import random
 import time
@@ -1052,7 +1052,7 @@ async def prefix_work(ctx):
     )
 
     add_money(
-        ctx.guild.id,
+        ctx.guild.id
         ctx.author.id,
         amount
     )
@@ -1062,10 +1062,153 @@ async def prefix_work(ctx):
         f"{money(amount)}!"
     )
 
+# ==============================
+# PREFIX COMMANDS
+# ==============================
 
-@bot.command(
-    name="give"
-    
+@bot.command(name="give", aliases=["pay"])
+async def prefix_give(ctx, member: discord.Member, amount: int):
+    if amount < 1:
+        await ctx.send("❌ Amount must be at least 1.")
+        return
+
+    if member.bot or member.id == ctx.author.id:
+        await ctx.send("❌ Choose another real member.")
+        return
+
+    current = balance(ctx.guild.id, ctx.author.id)
+
+    if current < amount:
+        await ctx.send(
+            f"❌ You only have {money(current)}."
+        )
+        return
+
+    add_money(ctx.guild.id, ctx.author.id, -amount)
+    add_money(ctx.guild.id, member.id, amount)
+
+    await ctx.send(
+        f"✅ {ctx.author.mention} gave "
+        f"{money(amount)} to {member.mention}."
+    )
+
+
+@bot.command(name="leaderboard", aliases=["lb"])
+async def prefix_leaderboard(ctx):
+    users = guild_data(ctx.guild.id)["users"]
+
+    rows = sorted(
+        ((uid, d.get("balance", 0)) for uid, d in users.items()),
+        key=lambda x: x[1],
+        reverse=True
+    )[:10]
+
+    if not rows:
+        text = "No economy data yet."
+    else:
+        text = "\n".join(
+            f"**{i}.** <@{uid}> — {money(amount)}"
+            for i, (uid, amount) in enumerate(rows, 1)
+        )
+
+    embed = discord.Embed(
+        title="🏆 Economy Leaderboard",
+        description=text
+    )
+
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="invites")
+async def prefix_invites(ctx, member: discord.Member | None = None):
+    target = member or ctx.author
+    u = user_data(ctx.guild.id, target.id)
+
+    await ctx.send(
+        f"📨 {target.mention} has "
+        f"**{u['invites']}** rewarded invites."
+    )
+
+
+# ==============================
+# ROB COMMAND
+# ==============================
+
+rob_cooldowns = {}
+
+
+@bot.command(name="rob")
+async def rob(ctx, target: discord.Member):
+    if target.bot:
+        await ctx.send("❌ You can't rob a bot.")
+        return
+
+    if target.id == ctx.author.id:
+        await ctx.send("❌ You can't rob yourself.")
+        return
+
+    key = (ctx.guild.id, ctx.author.id)
+    now = time.time()
+
+    if key in rob_cooldowns:
+        remaining = 3600 - (now - rob_cooldowns[key])
+
+        if remaining > 0:
+            minutes = max(1, int(remaining // 60))
+            await ctx.send(
+                f"⏳ You can rob someone again in "
+                f"**{minutes} minutes**."
+            )
+            return
+
+    target_balance = balance(ctx.guild.id, target.id)
+
+    if target_balance < 100:
+        await ctx.send(
+            f"❌ {target.mention} doesn't have enough "
+            f"{CURRENCY_NAME} to rob."
+        )
+        return
+
+    rob_cooldowns[key] = now
+
+    # 60% success chance
+    if random.randint(1, 100) <= 60:
+
+        amount = random.randint(
+            max(1, target_balance // 10),
+            max(1, target_balance // 4)
+        )
+
+        add_money(ctx.guild.id, target.id, -amount)
+        add_money(ctx.guild.id, ctx.author.id, amount)
+
+        await ctx.send(
+            f"💰 **Rob successful!**\n"
+            f"🦹 {ctx.author.mention} stole "
+            f"{money(amount)} from {target.mention}!"
+        )
+
+    else:
+
+        penalty = min(
+            balance(ctx.guild.id, ctx.author.id),
+            random.randint(25, 75)
+        )
+
+        if penalty > 0:
+            add_money(
+                ctx.guild.id,
+                ctx.author.id,
+                -penalty
+            )
+
+        await ctx.send(
+            f"🚔 **Rob failed!**\n"
+            f"{ctx.author.mention} got caught and lost "
+            f"{money(penalty)}."
+        )
+
 
 # ==============================
 # START BOT
