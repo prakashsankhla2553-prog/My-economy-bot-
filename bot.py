@@ -1052,7 +1052,7 @@ async def prefix_work(ctx):
     )
 
     add_money(
-        ctx.guild.id
+        ctx.guild.id,
         ctx.author.id,
         amount
     )
