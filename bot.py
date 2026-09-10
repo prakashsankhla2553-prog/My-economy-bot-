@@ -1064,5 +1064,11 @@ async def prefix_work(ctx):
 
 
 @bot.command(
-    name="give",
-   
+    name="give"
+    
+
+# ==============================
+# START BOT
+# ==============================
+
+bot.run(TOKEN)
